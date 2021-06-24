@@ -54,7 +54,6 @@ Compile / doc / scalacOptions ++= Seq(
   )
 )
 
-lazy val utils = RootProject(file("/home/jm/Lib/Scala/Utils"))
 lazy val latex = RootProject(file("/home/jm/Lib/Scala/LaTeX"))
 
 lazy val main = project
@@ -65,6 +64,5 @@ lazy val main = project
     unmanagedSources / excludeFilter := ".#*",
     scalacOptions ++= Seq( "-source:future-migration" ),
   )
-  .dependsOn(utils)
   .dependsOn(latex)
 
