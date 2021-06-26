@@ -39,6 +39,8 @@ publishTo := Some(
     Opts.resolver.sonatypeStaging
 )
 
+ThisBuild / versionScheme := Some("semver-spec")
+
 // end of maven etc. publishing section
 /////////////////////////////////////////////////////////////////
 
