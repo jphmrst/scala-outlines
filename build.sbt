@@ -49,11 +49,7 @@ libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.9" % "test"
 Global / excludeLintKeys ++= Set(scalacOptions)
 Compile / doc / scalacOptions ++= Seq(
   "-groups",
-  "-doc-root-content", "src/main/rootdoc.txt",
-  "-external-mappings:" ++ (
-    ".*scala.*::scaladoc3::" ++ "http://dotty.epfl.ch/api/,"
-      ++ "org\\.scalatest.*::scaladoc3::" ++ "http://doc.scalatest.org/3.0.0/"
-  )
+  "-doc-root-content", "src/main/rootdoc.txt"
 )
 
 lazy val latex = RootProject(file("/home/jm/Lib/Scala/LaTeX"))
