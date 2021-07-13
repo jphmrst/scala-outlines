@@ -24,10 +24,10 @@ licenses += (
   url("https://github.com/jphmrst/scala-outlines/blob/master/LICENSE.txt"))
 publishMavenStyle := true
 
-// disable publish with scala version, otherwise artifact name will
-// include scala version
-// e.g cassper_2.11
-crossPaths := false
+// "false" = disable publish with scala version
+//
+// otherwise artifact name will include scala version e.g cassper_2.11
+crossPaths := true
 
 // add sonatype repository settings
 // snapshot versions publish to sonatype snapshot repository
