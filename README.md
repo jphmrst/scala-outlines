@@ -1,6 +1,8 @@
-# ScalaUtils
+# scala-outlines
 
-Some Scala utilities I use in other projects.
+Representation of structured text in Scala, with output to plain text,
+LaTeX, and HTML.
 
-Written mostly out of ignorance of better solutions, or of laziness
-against a larger, more complicated framework.
+
+
+
