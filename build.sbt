@@ -41,9 +41,6 @@ ThisBuild / versionScheme := Some("semver-spec")
 // end of maven etc. publishing section
 /////////////////////////////////////////////////////////////////
 
-libraryDependencies += "org.scalactic" %% "scalactic" % "3.2.9"
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.2.9" % "test"
-libraryDependencies += "org.maraist" %% "scala-latex" % "1.1.1"
 Global / excludeLintKeys ++= Set(scalacOptions)
 Compile / doc / scalacOptions ++= Seq(
   "-groups",
@@ -54,8 +51,15 @@ lazy val main = project
   .in(file("."))
   .settings(
     scalaVersion := scala3Version,
+    libraryDependencies ++= Seq(
+      "org.scala-lang.modules" %% "scala-xml" % "2.0.1",
+      "org.typelevel" %% "paiges-core" % "0.4.2",
+      "org.scalactic" %% "scalactic" % "3.2.9",
+      "org.scalatest" %% "scalatest" % "3.2.9" % "test"
+      // , "org.maraist" %% "scala-latex" % "1.1.1"
+    ),
     compile / watchTriggers += baseDirectory.value.toGlob / "build.sbt",
     unmanagedSources / excludeFilter := ".#*",
     scalacOptions ++= Seq( "-source:future-migration" ),
-  )
+  ).dependsOn(RootProject(file("/home/jm/Lib/Scala/LaTeX/")))
 
