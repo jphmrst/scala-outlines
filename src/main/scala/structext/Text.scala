@@ -27,6 +27,7 @@ trait StructText extends LaTeXRenderable with Matchable {
     case RunTogether(txts) => new RunTogether(this :: txts)
     case _ => RunTogether(List(this, that))
   }
+  def fill(holeName: String, replacement: StructText): StructText
 }
 
 class WrappedStructText(val text: StructText,
@@ -55,6 +56,20 @@ class WrappedStructText(val text: StructText,
     val h7 = latexEnd.hashCode
     (((((h1 + h2) % mod + h3) % mod + h4) % mod + h5) % mod + h6) % mod + h7
   }
+  override def fill(holeName: String, replacement: StructText): StructText =
+    new WrappedStructText(text.fill(holeName, replacement),
+      textStart, textEnd, htmlStart, htmlEnd, latexStart, latexEnd)
+}
+
+class Hole(val name: String) extends StructText {
+  def err = throw new IllegalStateException(s"Unfilled hole $name")
+  override def toString: String = err
+  override def toPlainWords: Array[String] = err
+  override def toHTML: String = err
+  override def toLaTeX(doc: LaTeXdoc): Unit = err
+  override def hashCode(): Int = 1
+  override def fill(holeName: String, replacement: StructText): StructText =
+    if holeName.equals(name) then replacement else this
 }
 
 class PlainText(val text: String) extends StructText {
@@ -63,6 +78,7 @@ class PlainText(val text: String) extends StructText {
   override def toHTML: String = scala.xml.Utility.escape(text)
   override def toLaTeX(doc: LaTeXdoc): Unit = (doc ++= LaTeX.quoteString(text))
   override def hashCode(): Int = text.hashCode
+  override def fill(h: String, r: StructText): StructText = this
 }
 
 class Sequential(val texts: List[StructText],
@@ -92,6 +108,11 @@ class Sequential(val texts: List[StructText],
 
   override def hashCode(): Int =
     texts.map(_.hashCode).foldRight(10)((x, y) => x + y)
+
+  override def fill(holeName: String, replacement: StructText): StructText =
+    new Sequential(
+      texts.map(_.fill(holeName, replacement)),
+      stringSep, plainSep, htmlSep, latexSep)
 }
 
 class RunTogether(texts: List[StructText])
@@ -139,8 +160,7 @@ extends WrappedStructText(text, "", "", "", "", "\\textsc{", "}")
 
 class Underline(text: StructText)
 extends WrappedStructText(
-  text, Console.UNDERLINED, Console.RESET,
-  "<u>", "</u>", "\\underline{", "}")
+  text, Console.UNDERLINED, Console.RESET, "<u>", "</u>", "\\underline{", "}")
 
 // TODO But need some model of colors.
 //
@@ -165,6 +185,7 @@ object StructText {
   def sf(text: StructText): StructText = SansSerif(text)
   def sl(text: StructText): StructText = Slant(text)
   def sc(text: StructText): StructText = SmallCaps(text)
+  def blank(name: String): StructText = Hole(name)
   def emph(text: StructText): StructText = Emph(text)
   def underline(text: StructText): StructText = Underline(text)
   // def color(color: String, text: StructText): StructText = Color(color, text)

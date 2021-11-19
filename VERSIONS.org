@@ -1,4 +1,10 @@
 
+- 2.1.0 :: Added a fill-in-the-blank form of `StructText` for making
+  templates.
+
+  Added `StructText` forms corresponding to Speech Synthesis Markup
+  Language (SSML) markup.
+
 - 2.0.0 :: Added the `structext` package of representations of
   structured text with output to any of plain text, filled text, HTML
   or LaTeX.
