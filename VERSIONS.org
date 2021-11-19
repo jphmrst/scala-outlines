@@ -1,0 +1,8 @@
+
+- 2.0.0 :: Added the `structext` package of representations of
+  structured text with output to any of plain text, filled text, HTML
+  or LaTeX.
+
+  This file of changes started with this version.
+
+- 1.0.0 :: First version uploaded

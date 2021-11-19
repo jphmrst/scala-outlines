@@ -5,7 +5,7 @@ val scala3Version = "3.1.0"
 name := "scala-outlines"
 
 // library version
-version := "1.0.0"
+version := "2.0.0"
 
 /////////////////////////////////////////////////////////////////
 // begin maven etc. publishing information
