@@ -13,63 +13,6 @@ import java.io.PrintWriter
 import org.typelevel.paiges.Doc
 import org.maraist.latex.{LaTeX, LaTeXdoc, LaTeXRenderable}
 
-enum SpeakAs(val interpretAs: String, override val hashCode: Int) {
-  case Cardinal extends SpeakAs("cardinal", 1)
-  case Ordinal extends SpeakAs("ordinal", 2)
-  case Characters extends SpeakAs("characters", 3)
-  case Fraction extends SpeakAs("fraction", 4)
-  case Expletive extends SpeakAs("expletive", 5)
-  case Unit extends SpeakAs("unit", 6)
-  case SpellOut extends SpeakAs("spell-out", 7)
-  case Telephone extends SpeakAs("telephone", 8)
-}
-
-enum ProsodyRate(val rate: String, override val hashCode: Int) {
-  case Percent(pct: Int) extends ProsodyRate(s"$pct%", 10+pct)
-  case Omitted extends ProsodyRate("", 1)
-  case XSlow extends ProsodyRate("x-slow", 2)
-  case Slow extends ProsodyRate("slow", 3)
-  case Medium extends ProsodyRate("medium", 4)
-  case Fast extends ProsodyRate("fast", 5)
-  case XFast extends ProsodyRate("x-fast", 6)
-  case Default extends ProsodyRate("default", 7)
-  def forArg(label: String): String = this match {
-    case Omitted => ""
-    case _ => s" $label=\"${rate}\""
-  }
-}
-
-enum ProsodyPitch(val pitch: String, override val hashCode: Int) {
-  case Hz(hz: Int) extends ProsodyPitch(s"${hz}Hz", 10+hz)
-  case Omitted extends ProsodyPitch("", 1)
-  case XLow extends ProsodyPitch("x-low", 2)
-  case Low extends ProsodyPitch("low", 3)
-  case Medium extends ProsodyPitch("medium", 4)
-  case High extends ProsodyPitch("high", 5)
-  case XHigh extends ProsodyPitch("x-high", 6)
-  case Default extends ProsodyPitch("default", 7)
-  def forArg(label: String): String = this match {
-    case Omitted => ""
-    case _ => s" $label=\"${pitch}\""
-  }
-}
-
-enum ProsodyVolume(val volume: String, override val hashCode: Int) {
-  case DB(db: Double) extends ProsodyVolume(s"${db}dB", 10+10*db.toInt)
-  case Omitted extends ProsodyVolume("", 1)
-  case Silent extends ProsodyVolume("silent", 2)
-  case XSoft extends ProsodyVolume("x-soft", 3)
-  case Soft extends ProsodyVolume("soft", 4)
-  case Medium extends ProsodyVolume("medium", 5)
-  case Loud extends ProsodyVolume("loud", 6)
-  case XLoud extends ProsodyVolume("x-loud", 7)
-  case Default extends ProsodyVolume("default", 8)
-  def forArg(label: String): String = this match {
-    case Omitted => ""
-    case _ => s" $label=\"${volume}\""
-  }
-}
-
 trait StructText extends LaTeXRenderable with Matchable {
   def toPlain(width: Int): String = toDoc.render(width)
   def docWordsSeparator: Doc = Doc.lineOrSpace
@@ -86,13 +29,15 @@ trait StructText extends LaTeXRenderable with Matchable {
     case _ => RunTogether(List(this, that))
   }
   def fill(holeName: String, replacement: StructText): StructText
+  def dump: String
 }
 
 class WrappedStructText(val text: StructText,
+  val tag: String,
   textStart: String = "", textEnd: String = "",
   htmlStart: String = "", htmlEnd: String = "",
   latexStart: String = "", latexEnd: String = "",
-  ssmlStart: String = "", ssmlEnd: String = "", hashInc: Int = -1
+  ssmlStart: String = "", ssmlEnd: String = ""
 ) extends StructText {
   override def toString: String = text.toString
   override def toDoc: Doc =
@@ -114,12 +59,15 @@ class WrappedStructText(val text: StructText,
     val h5 = htmlEnd.hashCode
     val h6 = latexStart.hashCode
     val h7 = latexEnd.hashCode
-    (((((hashInc + h1 + h2) % mod + h3) % mod + h4) % mod + h5) % mod + h6)
+    (((((tag.hashCode + h1 + h2) % mod + h3) % mod + h4) % mod + h5) % mod + h6)
       % mod + h7
   }
   override def fill(holeName: String, replacement: StructText): StructText =
-    new WrappedStructText(text.fill(holeName, replacement),
-      textStart, textEnd, htmlStart, htmlEnd, latexStart, latexEnd)
+    new WrappedStructText(text.fill(holeName, replacement), tag,
+      textStart, textEnd, htmlStart, htmlEnd, latexStart, latexEnd,
+      ssmlStart, ssmlEnd)
+  override def dump: String = s"$tag(${text.dump}$dumpArgs)"
+  def dumpArgs: String = ""
 }
 
 class Hole(val name: String) extends StructText {
@@ -132,6 +80,7 @@ class Hole(val name: String) extends StructText {
   override def hashCode(): Int = 1
   override def fill(holeName: String, replacement: StructText): StructText =
     if holeName.equals(name) then replacement else this
+  override def dump: String = s"Hole($name)"
 }
 
 class PlainText(val text: String) extends StructText {
@@ -142,12 +91,13 @@ class PlainText(val text: String) extends StructText {
   override def toLaTeX(doc: LaTeXdoc): Unit = (doc ++= LaTeX.quoteString(text))
   override def hashCode(): Int = text.hashCode
   override def fill(h: String, r: StructText): StructText = this
+  override def dump: String = s"PlainText(\"$text\")"
 }
 
 class Sequential(
   val texts: List[StructText],
   stringSep: String, plainSep: Doc, htmlSep: String, latexSep: String,
-  ssmlSep: String = " "
+  ssmlSep: String
 ) extends StructText {
 
   override def toString: String = texts.map(_.toString).mkString(stringSep)
@@ -179,16 +129,22 @@ class Sequential(
   override def fill(holeName: String, replacement: StructText): StructText =
     new Sequential(
       texts.map(_.fill(holeName, replacement)),
-      stringSep, plainSep, htmlSep, latexSep)
+      stringSep, plainSep, htmlSep, latexSep, ssmlSep)
+
+  override def dump: String = s"Sequential(List(${texts.map(_.dump).mkString(", ")}), stringSep=\"$stringSep\", plainSep=\"$plainSep\", htmlSep=\"$htmlSep\", latexSep=\"$latexSep\", ssmlSep=\"$ssmlSep\")"
 }
 
 class RunTogether(texts: List[StructText])
-    extends Sequential(texts, "", Doc.empty, "", "") {
+    extends Sequential(texts, "", Doc.empty, "", "", "") {
   override def >(that: StructText): StructText = that match {
     case RunTogether(txts) => new RunTogether(this :: txts)
     case _ => RunTogether(texts ++ List(that))
   }
   override def hashCode(): Int = 11 + super.hashCode
+  override def dump: String = {
+    val textsStr = texts.map(_.dump).mkString(", ")
+    s"RunTogether(List($textsStr))"
+  }
 }
 
 object RunTogether {
@@ -196,13 +152,16 @@ object RunTogether {
 }
 
 class Sequence(texts: List[StructText])
-    extends Sequential(texts, " ", Doc.lineOrSpace, " ", " ") {
+    extends Sequential(texts, " ", Doc.lineOrSpace, " ", " ", " ") {
   override def +(that: StructText): StructText = that match {
     case Sequence(txts) => new Sequence(this :: txts)
     case _ => Sequence(texts ++ List(that))
   }
   override def hashCode(): Int = 12 + super.hashCode
+  override def dump: String =
+    s"Sequence(List(${texts.map(_.dump).mkString(", ")}))"
 }
+
 
 object Sequence {
   def unapply(txt: Sequence): Option[List[StructText]] = Some(txt.texts)
@@ -210,71 +169,94 @@ object Sequence {
 
 class Bold(text: StructText)
 extends WrappedStructText(
-  text, Console.BOLD, Console.RESET, "<b>", "</b>", "\\textbf{", "}",
-  hashInc=13)
+  text, "Bold", Console.BOLD, Console.RESET, "<b>", "</b>", "\\textbf{", "}")
 
 class Italics(text: StructText)
-extends WrappedStructText(text, "", "", "<i>", "</i>", "\\textit{", "}",
-  hashInc=14)
+extends WrappedStructText(
+  text, "Italics", "", "", "<i>", "</i>", "\\textit{", "}")
 
 class Slant(text: StructText)
-extends WrappedStructText(text, "", "", "<i>", "</i>", "\\textsl{", "}",
-  hashInc=15)
+extends WrappedStructText(
+  text, "Slant", "", "", "<i>", "</i>", "\\textsl{", "}")
 
 class Emph(text: StructText)
-extends WrappedStructText(text, "", "", "<em>", "</em>", "\\emph{", "}",
-  hashInc=16)
+extends WrappedStructText(text, "Emph", "", "", "<em>", "</em>", "\\emph{", "}")
 
 class SansSerif(text: StructText)
-extends WrappedStructText(text, latexStart = "\\textsf{", latexEnd = "}",
-  hashInc=17)
+extends WrappedStructText(
+  text, "SansSerif", latexStart = "\\textsf{", latexEnd = "}")
 
 class SmallCaps(text: StructText)
-extends WrappedStructText(text, latexStart = "\\textsc{", latexEnd = "}",
-  hashInc=18)
+extends WrappedStructText(
+  text, "SmallCaps", latexStart = "\\textsc{", latexEnd = "}")
 
 class SpeakingHint(text: StructText, hint: SpeakAs)
-extends WrappedStructText(text,
+extends WrappedStructText(text, "SpeakingHint",
   ssmlStart = s"<say-as interpret-as=\"${hint.interpretAs}\">",
-  ssmlEnd = "</say-as>",
-  hashInc=19)
+  ssmlEnd = "</say-as>") {
+  override def fill(holeName: String, replacement: StructText): StructText =
+    new SpeakingHint(text.fill(holeName, replacement), hint)
+}
 
 class Prosody(text: StructText,
   rate: ProsodyRate = ProsodyRate.Omitted,
   pitch: ProsodyPitch = ProsodyPitch.Omitted,
   range: ProsodyPitch = ProsodyPitch.Omitted,
   volume: ProsodyVolume = ProsodyVolume.Omitted)
-    extends WrappedStructText(text,
-      ssmlStart = s"<prosody${rate.forArg("rate")}${pitch.forArg("pitch")}${range.forArg("range")}${volume.forArg("volume")}>", ssmlEnd = "</prosody>") {
+extends WrappedStructText(text, "Prosody",
+  ssmlStart = s"<prosody${rate.forArg("rate")}${pitch.forArg("pitch")}${range.forArg("range")}${volume.forArg("volume")}>",
+  ssmlEnd = "</prosody>"
+) {
+  override def fill(holeName: String, replacement: StructText): StructText =
+    new Prosody(text.fill(holeName, replacement), rate, pitch, range, volume)
   override def hashCode(): Int =
     rate.hashCode + pitch.hashCode + range.hashCode
      + volume.hashCode + super.hashCode
 }
 
 class Sentence(text: StructText)
-extends WrappedStructText(text, ssmlStart = "<s>", ssmlEnd = "</s>",
-  hashInc=20)
+extends WrappedStructText(
+  text, "Sentence", ssmlStart = "<s>", ssmlEnd = "</s>")
 
 class Underline(text: StructText)
-extends WrappedStructText(
-  text, Console.UNDERLINED, Console.RESET, "<u>", "</u>", "\\underline{", "}",
-  hashInc=21)
+extends WrappedStructText(text, "Underline",
+  Console.UNDERLINED, Console.RESET, "<u>", "</u>", "\\underline{", "}")
 
 // TODO But need some model of colors.
 //
 // class Color(color: String, text: StructText)
-// extends WrappedStructText(text, "", "", "<>/", "</>", "\\text{", "}")
+// extends WrappedStructText(text, "Color", "", "", "<>/", "</>", "\\text{", "}")
 
 class Anchored(url: String, anchorText: StructText)
 extends WrappedStructText(
-  anchorText, htmlStart=s"<a href=\"$url\">", htmlEnd="</>",
-  hashInc=22)
+  anchorText, "Anchored", htmlStart=s"<a href=\"$url\">", htmlEnd="</>")
 
-class Phonetic(text: StructText, phonetic: String)
+class DQuoted(text: StructText)
+    extends WrappedStructText(text, "DQuoted",
+      latexStart = "``", latexEnd = "''",
+      htmlStart = "\"", htmlEnd = "\"",
+      textStart = "\"", textEnd = "\"")
+
+class Phonetic(text: StructText, written: String, val phonemes: Phonemes)
 extends WrappedStructText(
-  text, "", s" (\"$phonetic\")",
-  "", s" (\"$phonetic\")", "", s" (``$phonetic'')",
-  hashInc=23)
+  text, "Phonetic",
+  textEnd = s" (\"$written\")",
+  htmlEnd = s" (\"$written\")",
+  latexEnd = s" (``$written'')",
+  ssmlStart = phonemes match {
+    case Phonemes.IPA(phs) => s"<phoneme ph=\"$phs\">"
+    case _ => ""
+  },
+  ssmlEnd = phonemes match {
+    case Phonemes.IPA(_) => "</phoneme>"
+    case _ => ""
+  }
+) {
+  def this(text: StructText, written: String) =
+    this(text, written, Phonemes.None)
+  override def hashCode(): Int =
+    written.hashCode + phonemes.hashCode + super.hashCode
+}
 
 object StructText {
   def str(text: String): StructText = PlainText(text)
@@ -286,12 +268,15 @@ object StructText {
   def sc(text: StructText): StructText = SmallCaps(text)
   def blank(name: String): StructText = Hole(name)
   def emph(text: StructText): StructText = Emph(text)
+  def doublequoted(text: StructText): StructText = DQuoted(text)
   def speak(text: StructText, hint: SpeakAs) = SpeakingHint(text, hint)
   def underline(text: StructText): StructText = Underline(text)
   // def color(color: String, text: StructText): StructText = Color(color, text)
   def linked(url: String, text: StructText): StructText = Anchored(url, text)
   def phonetic(text: StructText, phonetic: String): StructText =
     Phonetic(text, phonetic)
+  def phonetic(text: StructText, phonetic: String, ipa: String): Phonetic =
+    Phonetic(text, phonetic, Phonemes.IPA(ipa))
   def sentence(text: StructText): StructText = Sentence(text)
   def prosody(text: StructText,
     rate: ProsodyRate = ProsodyRate.Omitted,
@@ -304,3 +289,4 @@ object StructText {
 
 given fromString: Conversion[String, StructText] with
   def apply(str: String): StructText = StructText.str(str)
+
