@@ -13,44 +13,61 @@ import java.io.PrintWriter
 import org.typelevel.paiges.Doc
 import org.maraist.latex.{LaTeX, LaTeXdoc, LaTeXRenderable}
 
-enum SpeakAs(val interpretAs: String) {
-  case Cardinal extends SpeakAs("cardinal")
-  case Ordinal extends SpeakAs("ordinal")
-  case Characters extends SpeakAs("characters")
-  case Fraction extends SpeakAs("fraction")
-  case Expletive extends SpeakAs("expletive")
-  case Unit extends SpeakAs("unit")
-  case SpellOut extends SpeakAs("spell-out")
+enum SpeakAs(val interpretAs: String, override val hashCode: Int) {
+  case Cardinal extends SpeakAs("cardinal", 1)
+  case Ordinal extends SpeakAs("ordinal", 2)
+  case Characters extends SpeakAs("characters", 3)
+  case Fraction extends SpeakAs("fraction", 4)
+  case Expletive extends SpeakAs("expletive", 5)
+  case Unit extends SpeakAs("unit", 6)
+  case SpellOut extends SpeakAs("spell-out", 7)
+  case Telephone extends SpeakAs("telephone", 8)
 }
 
-enum ProsodyRate(val rate: String) {
-  case XSlow extends ProsodyRate("x-slow")
-  case Slow extends ProsodyRate("slow")
-  case Medium extends ProsodyRate("medium")
-  case Fast extends ProsodyRate("fast")
-  case XFast extends ProsodyRate("x-fast")
-  case Default extends ProsodyRate("default")
+enum ProsodyRate(val rate: String, override val hashCode: Int) {
+  case Percent(pct: Int) extends ProsodyRate(s"$pct%", 10+pct)
+  case Omitted extends ProsodyRate("", 1)
+  case XSlow extends ProsodyRate("x-slow", 2)
+  case Slow extends ProsodyRate("slow", 3)
+  case Medium extends ProsodyRate("medium", 4)
+  case Fast extends ProsodyRate("fast", 5)
+  case XFast extends ProsodyRate("x-fast", 6)
+  case Default extends ProsodyRate("default", 7)
+  def forArg(label: String): String = this match {
+    case Omitted => ""
+    case _ => s" $label=\"${rate}\""
+  }
 }
 
-enum ProsodyPitch(val pitch: String) {
-  case Hz(hz: Int) extends ProsodyPitch(s"${hz}Hz")
-  case XLow extends ProsodyPitch("x-low")
-  case Low extends ProsodyPitch("low")
-  case Medium extends ProsodyPitch("medium")
-  case High extends ProsodyPitch("high")
-  case XHigh extends ProsodyPitch("x-high")
-  case Default extends ProsodyPitch("default")
+enum ProsodyPitch(val pitch: String, override val hashCode: Int) {
+  case Hz(hz: Int) extends ProsodyPitch(s"${hz}Hz", 10+hz)
+  case Omitted extends ProsodyPitch("", 1)
+  case XLow extends ProsodyPitch("x-low", 2)
+  case Low extends ProsodyPitch("low", 3)
+  case Medium extends ProsodyPitch("medium", 4)
+  case High extends ProsodyPitch("high", 5)
+  case XHigh extends ProsodyPitch("x-high", 6)
+  case Default extends ProsodyPitch("default", 7)
+  def forArg(label: String): String = this match {
+    case Omitted => ""
+    case _ => s" $label=\"${pitch}\""
+  }
 }
 
-enum ProsodyVolume(val volume: String) {
-  case DB(db: Double) extends ProsodyVolume(s"${db}dB")
-  case Silent extends ProsodyVolume("silent")
-  case XSoft extends ProsodyVolume("x-soft")
-  case Soft extends ProsodyVolume("soft")
-  case Medium extends ProsodyVolume("medium")
-  case Loud extends ProsodyVolume("loud")
-  case XLoud extends ProsodyVolume("x-loud")
-  case Default extends ProsodyVolume("default")
+enum ProsodyVolume(val volume: String, override val hashCode: Int) {
+  case DB(db: Double) extends ProsodyVolume(s"${db}dB", 10+10*db.toInt)
+  case Omitted extends ProsodyVolume("", 1)
+  case Silent extends ProsodyVolume("silent", 2)
+  case XSoft extends ProsodyVolume("x-soft", 3)
+  case Soft extends ProsodyVolume("soft", 4)
+  case Medium extends ProsodyVolume("medium", 5)
+  case Loud extends ProsodyVolume("loud", 6)
+  case XLoud extends ProsodyVolume("x-loud", 7)
+  case Default extends ProsodyVolume("default", 8)
+  def forArg(label: String): String = this match {
+    case Omitted => ""
+    case _ => s" $label=\"${volume}\""
+  }
 }
 
 trait StructText extends LaTeXRenderable with Matchable {
@@ -75,7 +92,7 @@ class WrappedStructText(val text: StructText,
   textStart: String = "", textEnd: String = "",
   htmlStart: String = "", htmlEnd: String = "",
   latexStart: String = "", latexEnd: String = "",
-  ssmlStart: String = "", ssmlEnd: String = ""
+  ssmlStart: String = "", ssmlEnd: String = "", hashInc: Int = -1
 ) extends StructText {
   override def toString: String = text.toString
   override def toDoc: Doc =
@@ -97,7 +114,8 @@ class WrappedStructText(val text: StructText,
     val h5 = htmlEnd.hashCode
     val h6 = latexStart.hashCode
     val h7 = latexEnd.hashCode
-    (((((h1 + h2) % mod + h3) % mod + h4) % mod + h5) % mod + h6) % mod + h7
+    (((((hashInc + h1 + h2) % mod + h3) % mod + h4) % mod + h5) % mod + h6)
+      % mod + h7
   }
   override def fill(holeName: String, replacement: StructText): StructText =
     new WrappedStructText(text.fill(holeName, replacement),
@@ -126,10 +144,11 @@ class PlainText(val text: String) extends StructText {
   override def fill(h: String, r: StructText): StructText = this
 }
 
-class Sequential(val texts: List[StructText],
+class Sequential(
+  val texts: List[StructText],
   stringSep: String, plainSep: Doc, htmlSep: String, latexSep: String,
-  ssmlSep: String = " ")
-    extends StructText {
+  ssmlSep: String = " "
+) extends StructText {
 
   override def toString: String = texts.map(_.toString).mkString(stringSep)
 
@@ -169,6 +188,7 @@ class RunTogether(texts: List[StructText])
     case RunTogether(txts) => new RunTogether(this :: txts)
     case _ => RunTogether(texts ++ List(that))
   }
+  override def hashCode(): Int = 11 + super.hashCode
 }
 
 object RunTogether {
@@ -181,6 +201,7 @@ class Sequence(texts: List[StructText])
     case Sequence(txts) => new Sequence(this :: txts)
     case _ => Sequence(texts ++ List(that))
   }
+  override def hashCode(): Int = 12 + super.hashCode
 }
 
 object Sequence {
@@ -189,56 +210,71 @@ object Sequence {
 
 class Bold(text: StructText)
 extends WrappedStructText(
-  text, Console.BOLD, Console.RESET, "<b>", "</b>", "\\textbf{", "}")
+  text, Console.BOLD, Console.RESET, "<b>", "</b>", "\\textbf{", "}",
+  hashInc=13)
 
 class Italics(text: StructText)
-extends WrappedStructText(text, "", "", "<i>", "</i>", "\\textit{", "}")
+extends WrappedStructText(text, "", "", "<i>", "</i>", "\\textit{", "}",
+  hashInc=14)
 
 class Slant(text: StructText)
-extends WrappedStructText(text, "", "", "<i>", "</i>", "\\textsl{", "}")
+extends WrappedStructText(text, "", "", "<i>", "</i>", "\\textsl{", "}",
+  hashInc=15)
 
 class Emph(text: StructText)
-extends WrappedStructText(text, "", "", "<em>", "</em>", "\\emph{", "}")
+extends WrappedStructText(text, "", "", "<em>", "</em>", "\\emph{", "}",
+  hashInc=16)
 
 class SansSerif(text: StructText)
-extends WrappedStructText(text, latexStart = "\\textsf{", latexEnd = "}")
+extends WrappedStructText(text, latexStart = "\\textsf{", latexEnd = "}",
+  hashInc=17)
 
 class SmallCaps(text: StructText)
-extends WrappedStructText(text, latexStart = "\\textsc{", latexEnd = "}")
+extends WrappedStructText(text, latexStart = "\\textsc{", latexEnd = "}",
+  hashInc=18)
 
 class SpeakingHint(text: StructText, hint: SpeakAs)
 extends WrappedStructText(text,
   ssmlStart = s"<say-as interpret-as=\"${hint.interpretAs}\">",
-  ssmlEnd = "</say-as>")
+  ssmlEnd = "</say-as>",
+  hashInc=19)
 
 class Prosody(text: StructText,
-  rate: ProsodyRate = ProsodyRate.Default,
-  pitch: ProsodyPitch = ProsodyPitch.Default,
-  range: ProsodyPitch = ProsodyPitch.Default,
-  volume: ProsodyVolume = ProsodyVolume.Default)
+  rate: ProsodyRate = ProsodyRate.Omitted,
+  pitch: ProsodyPitch = ProsodyPitch.Omitted,
+  range: ProsodyPitch = ProsodyPitch.Omitted,
+  volume: ProsodyVolume = ProsodyVolume.Omitted)
     extends WrappedStructText(text,
-      ssmlStart = "<prosody rate=\"${rate.rate}\" pitch=\"${pitch.pitch.}\" range=\"${range.pitch.}\" volume=\"${volume.volume}\">", ssmlEnd = "</prosody>")
+      ssmlStart = s"<prosody${rate.forArg("rate")}${pitch.forArg("pitch")}${range.forArg("range")}${volume.forArg("volume")}>", ssmlEnd = "</prosody>") {
+  override def hashCode(): Int =
+    rate.hashCode + pitch.hashCode + range.hashCode
+     + volume.hashCode + super.hashCode
+}
 
 class Sentence(text: StructText)
-extends WrappedStructText(text, ssmlStart = "<s>", ssmlEnd = "</s>")
+extends WrappedStructText(text, ssmlStart = "<s>", ssmlEnd = "</s>",
+  hashInc=20)
 
 class Underline(text: StructText)
 extends WrappedStructText(
-  text, Console.UNDERLINED, Console.RESET, "<u>", "</u>", "\\underline{", "}")
+  text, Console.UNDERLINED, Console.RESET, "<u>", "</u>", "\\underline{", "}",
+  hashInc=21)
 
 // TODO But need some model of colors.
 //
 // class Color(color: String, text: StructText)
-// extends WrappedStructText(text, "", "", "<>", "</>", "\\text{", "}")
+// extends WrappedStructText(text, "", "", "<>/", "</>", "\\text{", "}")
 
 class Anchored(url: String, anchorText: StructText)
 extends WrappedStructText(
-  anchorText, htmlStart=s"<a href=\"$url\">", htmlEnd="</>")
+  anchorText, htmlStart=s"<a href=\"$url\">", htmlEnd="</>",
+  hashInc=22)
 
 class Phonetic(text: StructText, phonetic: String)
 extends WrappedStructText(
   text, "", s" (\"$phonetic\")",
-  "", s" (\"$phonetic\")", "", s" (``$phonetic'')")
+  "", s" (\"$phonetic\")", "", s" (``$phonetic'')",
+  hashInc=23)
 
 object StructText {
   def str(text: String): StructText = PlainText(text)
@@ -256,6 +292,14 @@ object StructText {
   def linked(url: String, text: StructText): StructText = Anchored(url, text)
   def phonetic(text: StructText, phonetic: String): StructText =
     Phonetic(text, phonetic)
+  def sentence(text: StructText): StructText = Sentence(text)
+  def prosody(text: StructText,
+    rate: ProsodyRate = ProsodyRate.Omitted,
+    pitch: ProsodyPitch = ProsodyPitch.Omitted,
+    range: ProsodyPitch = ProsodyPitch.Omitted,
+    volume: ProsodyVolume = ProsodyVolume.Omitted
+  ) =
+    Prosody(text, rate, pitch, range, volume)
 }
 
 given fromString: Conversion[String, StructText] with
