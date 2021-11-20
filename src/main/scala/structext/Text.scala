@@ -270,6 +270,7 @@ object StructText {
   def emph(text: StructText): StructText = Emph(text)
   def doublequoted(text: StructText): StructText = DQuoted(text)
   def speak(text: StructText, hint: SpeakAs) = SpeakingHint(text, hint)
+  def phone(number: String) = speak(str(number), SpeakAs.Telephone)
   def underline(text: StructText): StructText = Underline(text)
   // def color(color: String, text: StructText): StructText = Color(color, text)
   def linked(url: String, text: StructText): StructText = Anchored(url, text)
