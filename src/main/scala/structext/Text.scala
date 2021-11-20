@@ -13,12 +13,53 @@ import java.io.PrintWriter
 import org.typelevel.paiges.Doc
 import org.maraist.latex.{LaTeX, LaTeXdoc, LaTeXRenderable}
 
+enum SpeakAs(val interpretAs: String) {
+  case Cardinal extends SpeakAs("cardinal")
+  case Ordinal extends SpeakAs("ordinal")
+  case Characters extends SpeakAs("characters")
+  case Fraction extends SpeakAs("fraction")
+  case Expletive extends SpeakAs("expletive")
+  case Unit extends SpeakAs("unit")
+  case SpellOut extends SpeakAs("spell-out")
+}
+
+enum ProsodyRate(val rate: String) {
+  case XSlow extends ProsodyRate("x-slow")
+  case Slow extends ProsodyRate("slow")
+  case Medium extends ProsodyRate("medium")
+  case Fast extends ProsodyRate("fast")
+  case XFast extends ProsodyRate("x-fast")
+  case Default extends ProsodyRate("default")
+}
+
+enum ProsodyPitch(val pitch: String) {
+  case Hz(hz: Int) extends ProsodyPitch(s"${hz}Hz")
+  case XLow extends ProsodyPitch("x-low")
+  case Low extends ProsodyPitch("low")
+  case Medium extends ProsodyPitch("medium")
+  case High extends ProsodyPitch("high")
+  case XHigh extends ProsodyPitch("x-high")
+  case Default extends ProsodyPitch("default")
+}
+
+enum ProsodyVolume(val volume: String) {
+  case DB(db: Double) extends ProsodyVolume(s"${db}dB")
+  case Silent extends ProsodyVolume("silent")
+  case XSoft extends ProsodyVolume("x-soft")
+  case Soft extends ProsodyVolume("soft")
+  case Medium extends ProsodyVolume("medium")
+  case Loud extends ProsodyVolume("loud")
+  case XLoud extends ProsodyVolume("x-loud")
+  case Default extends ProsodyVolume("default")
+}
+
 trait StructText extends LaTeXRenderable with Matchable {
   def toPlain(width: Int): String = toDoc.render(width)
   def docWordsSeparator: Doc = Doc.lineOrSpace
   def toDoc: Doc = Doc.fill(docWordsSeparator, toPlainWords.map(Doc.text))
   def toPlainWords: Array[String]
   def toHTML: String
+  def toSSML: String
   def +(that: StructText): StructText = that match {
     case Sequence(txts) => new Sequence(this :: txts)
     case _ => Sequence(List(this, that))
@@ -31,15 +72,17 @@ trait StructText extends LaTeXRenderable with Matchable {
 }
 
 class WrappedStructText(val text: StructText,
-  textStart: String, textEnd: String,
-  htmlStart: String, htmlEnd: String,
-  latexStart: String, latexEnd: String
+  textStart: String = "", textEnd: String = "",
+  htmlStart: String = "", htmlEnd: String = "",
+  latexStart: String = "", latexEnd: String = "",
+  ssmlStart: String = "", ssmlEnd: String = ""
 ) extends StructText {
   override def toString: String = text.toString
   override def toDoc: Doc =
     Doc.text(textStart) + super.toDoc + Doc.text(textEnd)
   override def toPlainWords: Array[String] = text.toPlainWords
   override def toHTML: String = htmlStart + text.toHTML + htmlEnd
+  override def toSSML: String = ssmlStart + text.toSSML + ssmlEnd
   override def toLaTeX(doc: LaTeXdoc): Unit = {
     doc ++= latexStart
     text.toLaTeX(doc)
@@ -67,6 +110,7 @@ class Hole(val name: String) extends StructText {
   override def toPlainWords: Array[String] = err
   override def toHTML: String = err
   override def toLaTeX(doc: LaTeXdoc): Unit = err
+  override def toSSML: String = err
   override def hashCode(): Int = 1
   override def fill(holeName: String, replacement: StructText): StructText =
     if holeName.equals(name) then replacement else this
@@ -76,13 +120,15 @@ class PlainText(val text: String) extends StructText {
   override def toString: String = text
   override def toPlainWords: Array[String] = text.split(" +")
   override def toHTML: String = scala.xml.Utility.escape(text)
+  override def toSSML: String = text
   override def toLaTeX(doc: LaTeXdoc): Unit = (doc ++= LaTeX.quoteString(text))
   override def hashCode(): Int = text.hashCode
   override def fill(h: String, r: StructText): StructText = this
 }
 
 class Sequential(val texts: List[StructText],
-  stringSep: String, plainSep: Doc, htmlSep: String, latexSep: String)
+  stringSep: String, plainSep: Doc, htmlSep: String, latexSep: String,
+  ssmlSep: String = " ")
     extends StructText {
 
   override def toString: String = texts.map(_.toString).mkString(stringSep)
@@ -90,6 +136,8 @@ class Sequential(val texts: List[StructText],
   override def docWordsSeparator: Doc = plainSep
 
   override def toHTML: String = texts.map(_.toHTML).mkString(htmlSep)
+
+  override def toSSML: String = texts.map(_.toSSML).mkString(ssmlSep)
 
   override def toPlainWords: Array[String] = {
     val bld = Array.newBuilder[String]
@@ -153,10 +201,26 @@ class Emph(text: StructText)
 extends WrappedStructText(text, "", "", "<em>", "</em>", "\\emph{", "}")
 
 class SansSerif(text: StructText)
-extends WrappedStructText(text, "", "", "", "", "\\textsf{", "}")
+extends WrappedStructText(text, latexStart = "\\textsf{", latexEnd = "}")
 
 class SmallCaps(text: StructText)
-extends WrappedStructText(text, "", "", "", "", "\\textsc{", "}")
+extends WrappedStructText(text, latexStart = "\\textsc{", latexEnd = "}")
+
+class SpeakingHint(text: StructText, hint: SpeakAs)
+extends WrappedStructText(text,
+  ssmlStart = s"<say-as interpret-as=\"${hint.interpretAs}\">",
+  ssmlEnd = "</say-as>")
+
+class Prosody(text: StructText,
+  rate: ProsodyRate = ProsodyRate.Default,
+  pitch: ProsodyPitch = ProsodyPitch.Default,
+  range: ProsodyPitch = ProsodyPitch.Default,
+  volume: ProsodyVolume = ProsodyVolume.Default)
+    extends WrappedStructText(text,
+      ssmlStart = "<prosody rate=\"${rate.rate}\" pitch=\"${pitch.pitch.}\" range=\"${range.pitch.}\" volume=\"${volume.volume}\">", ssmlEnd = "</prosody>")
+
+class Sentence(text: StructText)
+extends WrappedStructText(text, ssmlStart = "<s>", ssmlEnd = "</s>")
 
 class Underline(text: StructText)
 extends WrappedStructText(
@@ -169,8 +233,7 @@ extends WrappedStructText(
 
 class Anchored(url: String, anchorText: StructText)
 extends WrappedStructText(
-  anchorText, "", "", s"<a href=\"$url\">", "</>", "", ""
-)
+  anchorText, htmlStart=s"<a href=\"$url\">", htmlEnd="</>")
 
 class Phonetic(text: StructText, phonetic: String)
 extends WrappedStructText(
@@ -187,6 +250,7 @@ object StructText {
   def sc(text: StructText): StructText = SmallCaps(text)
   def blank(name: String): StructText = Hole(name)
   def emph(text: StructText): StructText = Emph(text)
+  def speak(text: StructText, hint: SpeakAs) = SpeakingHint(text, hint)
   def underline(text: StructText): StructText = Underline(text)
   // def color(color: String, text: StructText): StructText = Color(color, text)
   def linked(url: String, text: StructText): StructText = Anchored(url, text)
