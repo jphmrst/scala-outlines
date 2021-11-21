@@ -15,6 +15,19 @@ enum Phonemes(override val hashCode: Int) {
   case IPA(phonemes: String) extends Phonemes(phonemes.hashCode)
 }
 
+enum PauseWeight(override val hashCode: Int, val toBreakArgs: String) {
+  case Seconds(val secs: Int)
+      extends PauseWeight(secs * 10000, s" time=\"${secs}s\"")
+  case Milliseconds(val ms: Int)
+      extends PauseWeight(ms * 10, s" time=\"${ms}ms\"")
+  case None extends PauseWeight(1, " strength=\"none\"")
+  case XWeak extends PauseWeight(2, " strength=\"x-weak\"")
+  case Weak extends PauseWeight(3, " strength=\"weak\"")
+  case Medium extends PauseWeight(4, " strength=\"medium\"")
+  case Strong extends PauseWeight(5, " strength=\"strong\"")
+  case XStrong extends PauseWeight(6, " strength=\"x-strong\"")
+}
+
 enum SpeakAs(val interpretAs: String, override val hashCode: Int) {
   case Cardinal extends SpeakAs("cardinal", 1)
   case Ordinal extends SpeakAs("ordinal", 2)
@@ -24,6 +37,12 @@ enum SpeakAs(val interpretAs: String, override val hashCode: Int) {
   case Unit extends SpeakAs("unit", 6)
   case SpellOut extends SpeakAs("spell-out", 7)
   case Telephone extends SpeakAs("telephone", 8)
+  case Date(val elements: String) extends SpeakAs("date", 9)
+  def toSpeakAsArgs: String = this match {
+    case Date(elements) =>
+      s"interpret-as=\"${interpretAs}\" format=\"$elements\""
+    case _ => s"interpret-as=\"${interpretAs}\""
+  }
 }
 
 enum ProsodyRate(val rate: String, override val hashCode: Int) {

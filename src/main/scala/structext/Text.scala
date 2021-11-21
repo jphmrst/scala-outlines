@@ -52,15 +52,9 @@ class WrappedStructText(val text: StructText,
   }
   override def hashCode(): Int = {
     val mod = Int.MaxValue / 2 - 1
-    val h1 = text.hashCode
-    val h2 = textStart.hashCode
-    val h3 = textEnd.hashCode
-    val h4 = htmlStart.hashCode
-    val h5 = htmlEnd.hashCode
-    val h6 = latexStart.hashCode
-    val h7 = latexEnd.hashCode
-    (((((tag.hashCode + h1 + h2) % mod + h3) % mod + h4) % mod + h5) % mod + h6)
-      % mod + h7
+    (((((tag.hashCode + text.hashCode + textStart.hashCode) % mod
+      + textEnd.hashCode) % mod + htmlStart.hashCode) % mod + htmlEnd.hashCode)
+      % mod + latexStart.hashCode) % mod + latexEnd.hashCode
   }
   override def fill(holeName: String, replacement: StructText): StructText =
     new WrappedStructText(text.fill(holeName, replacement), tag,
@@ -92,6 +86,17 @@ class PlainText(val text: String) extends StructText {
   override def hashCode(): Int = text.hashCode
   override def fill(h: String, r: StructText): StructText = this
   override def dump: String = s"PlainText(\"$text\")"
+}
+
+class Pause(val weight: PauseWeight) extends StructText {
+  override def toString: String = ""
+  override def toPlainWords: Array[String] = Array.empty[String]
+  override def toHTML: String = ""
+  override def toSSML: String = s"<break${weight.toBreakArgs}/>"
+  override def toLaTeX(doc: LaTeXdoc): Unit = { }
+  override def hashCode(): Int = weight.hashCode
+  override def fill(h: String, r: StructText): StructText = this
+  override def dump: String = s"Pause($weight)"
 }
 
 class Sequential(
@@ -180,7 +185,8 @@ extends WrappedStructText(
   text, "Slant", "", "", "<i>", "</i>", "\\textsl{", "}")
 
 class Emph(text: StructText)
-extends WrappedStructText(text, "Emph", "", "", "<em>", "</em>", "\\emph{", "}")
+extends WrappedStructText(
+  text, "Emph", "", "", "<em>", "</em>", "\\emph{", "}")
 
 class SansSerif(text: StructText)
 extends WrappedStructText(
@@ -192,7 +198,7 @@ extends WrappedStructText(
 
 class SpeakingHint(text: StructText, hint: SpeakAs)
 extends WrappedStructText(text, "SpeakingHint",
-  ssmlStart = s"<say-as interpret-as=\"${hint.interpretAs}\">",
+  ssmlStart = s"<say-as ${hint.toSpeakAsArgs}>",
   ssmlEnd = "</say-as>") {
   override def fill(holeName: String, replacement: StructText): StructText =
     new SpeakingHint(text.fill(holeName, replacement), hint)
@@ -244,7 +250,7 @@ extends WrappedStructText(
   htmlEnd = s" (\"$written\")",
   latexEnd = s" (``$written'')",
   ssmlStart = phonemes match {
-    case Phonemes.IPA(phs) => s"<phoneme ph=\"$phs\">"
+    case Phonemes.IPA(phs) => s"<phoneme alphabet=\"ipa\" ph=\"$phs\">"
     case _ => ""
   },
   ssmlEnd = phonemes match {
@@ -286,6 +292,7 @@ object StructText {
     volume: ProsodyVolume = ProsodyVolume.Omitted
   ) =
     Prosody(text, rate, pitch, range, volume)
+  def pause(weight: PauseWeight): StructText = Pause(weight)
 }
 
 given fromString: Conversion[String, StructText] with
