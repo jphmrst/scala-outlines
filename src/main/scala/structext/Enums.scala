@@ -38,8 +38,11 @@ enum SpeakAs(val interpretAs: String, override val hashCode: Int) {
   case SpellOut extends SpeakAs("spell-out", 7)
   case Telephone extends SpeakAs("telephone", 8)
   case Date(val elements: String) extends SpeakAs("date", 9)
+  case Time(val elements: String = "hms12") extends SpeakAs("time", 10)
   def toSpeakAsArgs: String = this match {
     case Date(elements) =>
+      s"interpret-as=\"${interpretAs}\" format=\"$elements\""
+    case Time(elements) =>
       s"interpret-as=\"${interpretAs}\" format=\"$elements\""
     case _ => s"interpret-as=\"${interpretAs}\""
   }

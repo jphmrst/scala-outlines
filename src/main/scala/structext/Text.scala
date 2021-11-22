@@ -243,12 +243,13 @@ class DQuoted(text: StructText)
       htmlStart = "\"", htmlEnd = "\"",
       textStart = "\"", textEnd = "\"")
 
-class Phonetic(text: StructText, written: String, val phonemes: Phonemes)
+class Phonetic(
+  text: StructText, written: Option[String], val phonemes: Phonemes)
 extends WrappedStructText(
   text, "Phonetic",
-  textEnd = s" (\"$written\")",
-  htmlEnd = s" (\"$written\")",
-  latexEnd = s" (``$written'')",
+  textEnd = written.map(" (\"" + _ + "\")").getOrElse(""),
+  htmlEnd = written.map(" (\"" + _ + "\")").getOrElse(""),
+  latexEnd = written.map(" (``" + _ + "'')").getOrElse(""),
   ssmlStart = phonemes match {
     case Phonemes.IPA(phs) => s"<phoneme alphabet=\"ipa\" ph=\"$phs\">"
     case _ => ""
@@ -258,7 +259,7 @@ extends WrappedStructText(
     case _ => ""
   }
 ) {
-  def this(text: StructText, written: String) =
+  def this(text: StructText, written: Some[String]) =
     this(text, written, Phonemes.None)
   override def hashCode(): Int =
     written.hashCode + phonemes.hashCode + super.hashCode
@@ -278,12 +279,13 @@ object StructText {
   def speak(text: StructText, hint: SpeakAs) = SpeakingHint(text, hint)
   def phone(number: String) = speak(str(number), SpeakAs.Telephone)
   def underline(text: StructText): StructText = Underline(text)
-  // def color(color: String, text: StructText): StructText = Color(color, text)
   def linked(url: String, text: StructText): StructText = Anchored(url, text)
   def phonetic(text: StructText, phonetic: String): StructText =
-    Phonetic(text, phonetic)
+    Phonetic(text, Some(phonetic))
   def phonetic(text: StructText, phonetic: String, ipa: String): Phonetic =
-    Phonetic(text, phonetic, Phonemes.IPA(ipa))
+    Phonetic(text, Some(phonetic), Phonemes.IPA(ipa))
+  def phoneticIPA(text: StructText, ipa: String): Phonetic =
+    Phonetic(text, None, Phonemes.IPA(ipa))
   def sentence(text: StructText): StructText = Sentence(text)
   def prosody(text: StructText,
     rate: ProsodyRate = ProsodyRate.Omitted,
@@ -293,6 +295,13 @@ object StructText {
   ) =
     Prosody(text, rate, pitch, range, volume)
   def pause(weight: PauseWeight): StructText = Pause(weight)
+  def spellout(acronym: String): StructText =
+    speak(str(acronym), SpeakAs.SpellOut)
+  def date(d: String, elements: String = "mdy"): StructText =
+    speak(str(d), SpeakAs.Date(elements))
+  def time(t: String, elements: String = "hms12"): StructText =
+    speak(str(t), SpeakAs.Time(elements))
+  // def color(color: String, text: StructText): StructText = Color(color, text)
 }
 
 given fromString: Conversion[String, StructText] with
